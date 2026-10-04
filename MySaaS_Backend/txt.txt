@@ -1,0 +1,4 @@
+py -3 -m pip install fastapi uvicorn pdfplumber chromadb sentence-transformers transformers torch python-multipart
+py -3 -m pip install accelerate
+py -3 -m pip install python-docx
+py -3 main.py

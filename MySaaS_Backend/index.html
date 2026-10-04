@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuMind AI | Enterprise</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Added marked.js for rich text formatting (Markdown) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Premium Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Glassmorphism */
+        .glass-header {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* Animations */
+        @keyframes messageSlideIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-animate { animation: messageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        .mic-active { color: #ef4444 !important; animation: pulse-ring 2s infinite; }
+
+        .drag-active {
+            border-color: #818cf8 !important;
+            background-color: rgba(99, 102, 241, 0.1) !important;
+        }
+
+        /* Markdown Styles within Chat */
+        .prose p { margin-bottom: 0.75em; }
+        .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 0.75em; }
+        .prose ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 0.75em; }
+        .prose strong { font-weight: 600; color: #111827; }
+        .prose pre { background: #1e293b; color: #f8fafc; padding: 1em; border-radius: 0.5rem; overflow-x: auto; font-size: 0.875rem; }
+        .prose code { background: #f1f5f9; color: #db2777; padding: 0.1em 0.3em; border-radius: 0.25rem; font-size: 0.875em; }
+
+        /* Thinking Dots Animation */
+        .dot-flashing {
+            position: relative; width: 6px; height: 6px; border-radius: 5px;
+            background-color: #6366f1; color: #6366f1;
+            animation: dotFlashing 1s infinite linear alternate;
+            animation-delay: .5s;
+        }
+        .dot-flashing::before, .dot-flashing::after {
+            content: ''; display: inline-block; position: absolute; top: 0;
+            width: 6px; height: 6px; border-radius: 5px;
+            background-color: #6366f1; color: #6366f1;
+            animation: dotFlashing 1s infinite alternate;
+        }
+        .dot-flashing::before { left: -10px; animation-delay: 0s; }
+        .dot-flashing::after { left: 10px; animation-delay: 1s; }
+        @keyframes dotFlashing {
+            0% { background-color: #6366f1; }
+            50%, 100% { background-color: #e0e7ff; }
+        }
+
+        /* Custom Toast */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            min-width: 250px; padding: 12px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 500;
+            display: flex; items-center: center; gap: 10px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: #ecfdf5; color: #065f46; border-left: 4px solid #10b981; }
+        .toast.error { background: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; }
+        .toast.info { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; }
+    </style>
+</head>
+<body class="bg-[#f3f4f6] h-screen text-gray-800 overflow-hidden flex items-center justify-center">
+
+    <div id="toast-container"></div>
+
+    <!-- Main App Container -->
+    <div class="flex h-full w-full max-w-[1600px] bg-white shadow-2xl overflow-hidden sm:rounded-2xl sm:h-[95vh] sm:border border-gray-200">
+        
+        <!-- Sidebar: Dark Premium Theme -->
+        <div class="w-[320px] bg-[#0f172a] text-slate-300 p-6 flex flex-col justify-between h-full flex-shrink-0 z-20">
+            <div>
+                <!-- Logo -->
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                        <i class="fa-solid fa-layer-group text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white tracking-tight">DocuMind AI</h1>
+                        <p class="text-[10px] uppercase tracking-widest text-indigo-400 font-semibold"></p>
+                    </div>
+                </div>
+
+                <!-- AI Personas (Feature 2) -->
+                <div class="mb-8">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">AI Intelligence Mode</label>
+                    <div class="relative group">
+                        <select id="persona-select" class="block appearance-none w-full bg-[#1e293b] border border-slate-700 text-slate-200 py-3 px-4 pr-8 rounded-xl leading-tight focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm transition-all cursor-pointer shadow-inner">
+                            <option value="General">🤖 General Assistant</option>
+                            <option value="Legal">⚖️️ Legal Counsel (Contracts)</option>
+                            <option value="HR">👔 HR Executive (Resumes)</option>
+                            <option value="Student">🎓 Academic Tutor</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drop Zone (Feature 1: OCR & Files) -->
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Knowledge Base</label>
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 hover:border-indigo-400 hover:bg-[#1e293b] flex flex-col items-center justify-center min-h-[220px] group">
+                        <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl text-indigo-400"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-slate-200 mb-1">Upload Documents</h3>
+                        <p class="text-xs text-slate-500 max-w-[200px]">Drag & drop or click to browse</p>
+                        <div class="mt-4 flex gap-2 justify-center">
+                            <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400">PDF</span>
+                            <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400">DOCX</span>
+                            <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400 border border-indigo-500/30 text-indigo-300"></span>
+                        </div>
+                        <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.docx,.jpg,.jpeg,.png" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <button onclick="compareDocs()" class="w-full bg-[#1e293b] hover:bg-[#334155] border border-slate-700 text-slate-200 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-code-compare mr-2 text-indigo-400"></i> Compare Documents
+                </button>
+                
+                <div id="server-status-container" class="flex items-center justify-between p-3 rounded-xl bg-[#0b1120] border border-slate-800">
+                    <div class="flex items-center">
+                        <div class="relative flex h-3 w-3 mr-3">
+                          <span id="server-status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
+                          <span id="server-status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
+                        </div>
+                        <span id="server-status-text" class="text-xs font-medium text-slate-400">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col h-full bg-[#f8fafc] relative">
+            
+            <!-- Glass Header -->
+            <div class="glass-header border-b border-gray-200 px-8 py-4 flex items-center justify-between absolute top-0 w-full z-10">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-bold text-gray-800 tracking-tight">Workspace</h2>
+                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wide">Secure</span>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="exportPDF()" class="text-sm text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:border-gray-300 shadow-sm transition-all px-4 py-2 rounded-lg font-medium flex items-center">
+                        <i class="fa-solid fa-download mr-2"></i> Export Report
+                    </button>
+                    <button onclick="clearChat()" class="text-sm text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 transition-all px-4 py-2 rounded-lg font-medium flex items-center">
+                        <i class="fa-solid fa-trash-can mr-2"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages Container -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto px-8 pt-24 pb-32 space-y-8 scroll-smooth">
+                <!-- Welcome Message -->
+                <div class="flex gap-5 msg-animate">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                        <i class="fa-solid fa-sparkles text-white text-sm"></i>
+                    </div>
+                    <div class="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-6 py-5 max-w-[85%] text-sm">
+                        <h3 class="font-bold text-gray-800 mb-2 text-base">Welcome to DocuMind Enterprise 👋</h3>
+                        <p class="text-gray-600 leading-relaxed">
+                            Upload your PDFs, Word documents, or scanned images. I will read them using advanced RAG and OCR technology. You can type or <strong>use your voice</strong> to ask questions!
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Input Area -->
+            <div class="absolute bottom-0 w-full p-6 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc] to-transparent pt-10 z-10">
+                <form id="chat-form" class="relative max-w-4xl mx-auto flex items-end bg-white border border-gray-200 shadow-xl rounded-2xl overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-200 transition-all">
+                    
+                    <!-- Voice Input Button (Feature 3) -->
+                    <button type="button" id="mic-btn" class="p-4 text-gray-400 hover:text-indigo-600 transition-colors flex-shrink-0" title="Use Voice Input">
+                        <i class="fa-solid fa-microphone text-lg"></i>
+                    </button>
+                    
+                    <textarea 
+                        id="chat-input"
+                        rows="1"
+                        class="w-full bg-transparent text-gray-800 text-sm focus:outline-none py-4 px-2 resize-none max-h-32" 
+                        placeholder="Ask anything about your documents..." 
+                        required
+                        disabled
+                    ></textarea>
+                    
+                    <button type="submit" id="send-btn" class="m-2 bg-indigo-600 text-white rounded-xl w-10 h-10 flex items-center justify-center hover:bg-indigo-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0 shadow-md" disabled>
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <p class="text-[10px] text-gray-400 font-medium tracking-wide">DocuMind AI can make mistakes. Consider verifying important information.</p>
+                </div>
+            </div>
+            
+            <!-- Premium Thinking Indicator -->
+            <div id="chat-loading" class="hidden absolute bottom-[120px] left-8 items-center bg-white shadow-md border border-gray-100 px-5 py-3 rounded-2xl rounded-bl-none z-10 msg-animate">
+                <div class="flex gap-3 items-center">
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <i class="fa-solid fa-brain text-indigo-600 text-[10px]"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-gray-500 tracking-wide uppercase">AI is analyzing</span>
+                    <div class="dot-flashing ml-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = "http://127.0.0.1:8000";
+
+        // Custom Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = '';
+            if(type === 'success') icon = '<i class="fa-solid fa-circle-check"></i>';
+            else if(type === 'error') icon = '<i class="fa-solid fa-circle-exclamation"></i>';
+            else icon = '<i class="fa-solid fa-circle-info"></i>';
+
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove after 4 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Auto-resize textarea
+        const textarea = document.getElementById('chat-input');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight < 128 ? this.scrollHeight : 128) + 'px';
+        });
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('chat-form').dispatchEvent(new Event('submit')); }
+        });
+
+        // Setup Markdown parser options
+        marked.setOptions({ breaks: true, gfm: true });
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatLoading = document.getElementById('chat-loading');
+        const personaSelect = document.getElementById('persona-select');
+
+        let isUploading = false;
+        let isWaitingForResponse = false;
+
+        // --- Drag & Drop ---
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-active'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));;
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-active'); if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files); });
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFiles(e.target.files); });
+
+        async function handleFiles(files) {
+            if (isUploading) return;
+            const validFiles = Array.from(files).filter(file => {
+                const n = file.name.toLowerCase();
+                return n.endsWith('.pdf') || n.endsWith('.docx') || n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png');
+            });
+            
+            if (validFiles.length === 0) { showToast('Please upload PDF, DOCX, or Images.', 'error'); return; }
+
+            isUploading = true;
+            showToast(`Uploading ${validFiles.length} file(s). Running AI pipeline...`, 'info');
+            dropZone.innerHTML = `<i class="fa-solid fa-cog fa-spin text-3xl text-indigo-400 mb-3"></i><p class="text-sm text-slate-300 font-medium">Processing Documents...</p>`;
+            
+            const formData = new FormData();
+            validFiles.forEach(file => formData.append('files', file));
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast(data.message, 'success');
+                    chatInput.disabled = false; sendBtn.disabled = false; chatInput.focus();
+                    if (data.summary) {
+                        // Use Typewriter effect for auto-summary
+                        addMessage(data.summary, false, { isSystem: true, title: "✨ Document Auto-Summary" });
+                    }
+                } else throw new Error(data.detail || 'Upload failed');
+            } catch (error) {
+                showToast("Connection failed. Backend server offline?", 'error');
+            } finally {
+                isUploading = false; fileInput.value = ''; 
+                dropZone.innerHTML = `
+                    <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-indigo-400"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-slate-200 mb-1">Upload Documents</h3>
+                    <p class="text-xs text-slate-500 max-w-[200px]">Drag & drop or click to browse</p>
+                    <div class="mt-4 flex gap-2 justify-center">
+                        <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400">PDF</span>
+                        <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400">DOCX</span>
+                        <span class="px-2 py-1 rounded bg-slate-800 text-[10px] font-medium text-slate-400 border border-indigo-500/30 text-indigo-300">IMAGES (OCR)</span>
+                    </div>`;
+            }
+        }
+
+        // Feature 3: Voice Input & TTS
+        window.readAloud = function(btnElement, text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                const icon = btnElement.querySelector('i');
+                const originalClass = icon.className;
+                
+                utterance.onstart = () => { icon.className = "fa-solid fa-chart-simple text-indigo-600 animate-pulse"; btnElement.classList.add('text-indigo-600'); };
+                utterance.onend = () => { icon.className = "fa-solid fa-volume-up"; btnElement.classList.remove('text-indigo-600'); };
+                
+                window.speechSynthesis.cancel(); 
+                window.speechSynthesis.speak(utterance);
+            } else showToast("Text-to-speech not supported.", "error");
+        }
+
+        const micBtn = document.getElementById('mic-btn');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            
+            recognition.onstart = () => { micBtn.classList.add('mic-active'); chatInput.placeholder = "Listening..."; };
+            recognition.onresult = (e) => { chatInput.value = e.results[0][0].transcript; textarea.style.height = 'auto'; sendBtn.disabled = false; };
+            recognition.onerror = () => { micBtn.classList.remove('mic-active'); chatInput.placeholder = "Ask anything..."; showToast("Microphone error.", "error"); };
+            recognition.onend = () => { micBtn.classList.remove('mic-active'); chatInput.placeholder = "Ask anything..."; };
+
+            micBtn.addEventListener('click', () => { if (!chatInput.disabled) recognition.start(); });
+        } else { micBtn.style.display = 'none'; }
+
+        function addMessage(text, isUser = false, opts = {}) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex gap-5 msg-animate w-full ${isUser ? 'flex-row-reverse' : ''}`;
+            
+            // Avatar
+            let avatarHtml = '';
+            if (isUser) {
+                avatarHtml = `<div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0 shadow-md"><i class="fa-solid fa-user text-white text-sm"></i></div>`;
+            } else {
+                avatarHtml = `<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md"><i class="fa-solid fa-robot text-white text-sm"></i></div>`;
+            }
+            
+            // Bubble Shell
+            const bubbleId = 'msg-' + Date.now();
+            const bubbleClass = isUser 
+                ? 'bg-gray-800 text-white rounded-2xl rounded-tr-none px-6 py-4 max-w-[85%] text-sm shadow-md' 
+                : 'bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-6 py-5 max-w-[85%] text-sm w-full';
+            
+            let header = opts.title ? `<h4 class="font-bold text-indigo-700 mb-2 border-b border-indigo-50 pb-2">${opts.title}</h4>` : '';
+            
+            const shellHtml = `
+                ${avatarHtml}
+                <div class="${bubbleClass}">
+                    ${header}
+                    <div id="${bubbleId}" class="prose prose-sm max-w-none text-inherit leading-relaxed"></div>
+                </div>
+            `;
+            msgDiv.innerHTML = shellHtml;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const contentDiv = document.getElementById(bubbleId);
+
+            // MAGIC: Typewriter Effect with Markdown Parsing
+            if (isUser) {
+                contentDiv.innerText = text; // Plain text for user
+            } else {
+                // SaaS Typewriter logic
+                let i = 0;
+                let currentText = '';
+                const speed = 10; // ms per character
+                
+                // Show thinking overlay first, then type
+                chatLoading.classList.add('hidden');
+                
+                function typeWriter() {
+                    if (i < text.length) {
+                        currentText += text.charAt(i);
+                        // Render markdown live
+                        contentDiv.innerHTML = marked.parse(currentText);
+                        i++;
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        setTimeout(typeWriter, speed);
+                    } else {
+                        // Finished typing, inject extras (TTS, Sources, Follow-ups)
+                        injectExtras(contentDiv, text, opts);
+                    }
+                }
+                typeWriter();
+            }
+        }
+
+        function injectExtras(container, rawText, opts) {
+            let extrasHtml = '';
+            
+            // Voice TTS Button
+            let plainTextForVoice = rawText.replace(/[*#_`]/g, '').replace(/\n/g, ' ');
+            extrasHtml += `<div class="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100">
+                <button onclick='readAloud(this, \`${plainTextForVoice.replace(/'/g, "")}\`)' class="text-gray-400 hover:text-indigo-600 transition-colors text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-volume-up"></i> Listen</button>
+            </div>`;
+
+            // Feature: Citations
+            if (opts.sources && opts.sources.length > 0) {
+                const srcBadges = opts.sources.map(s => `<span class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-md text-[10px] font-bold"><i class="fa-solid fa-file-pdf"></i> ${s}</span>`).join('');
+                extrasHtml += `<div class="mt-3"><span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold block mb-1.5">Knowledge Sources</span><div class="flex flex-wrap gap-2">${srcBadges}</div></div>`;
+            }
+
+            // Feature 4: Smart Follow-ups (Pills)
+            if (opts.followUps && opts.followUps.length > 0) {
+                const pills = opts.followUps.map(fu => `<button onclick="triggerFollowUp(this)" class="text-left text-xs bg-white border border-gray-200 shadow-sm text-gray-700 hover:border-indigo-400 hover:text-indigo-700 px-4 py-2.5 rounded-xl transition-all w-full flex items-start gap-2.5 group"><i class="fa-solid fa-sparkles text-indigo-400 mt-0.5 group-hover:scale-110 transition-transform"></i> <span class="flex-1">${fu}</span></button>`).join('');
+                extrasHtml += `<div class="mt-4"><span class="text-[10px] text-gray-400 uppercase tracking-wider font-bold block mb-2">Suggested Next Steps</span><div class="flex flex-col gap-2">${pills}</div></div>`;
+            }
+
+            container.insertAdjacentHTML('beforeend', extrasHtml);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        window.triggerFollowUp = function(btn) {
+            chatInput.value = btn.querySelector('span').innerText;
+            chatForm.dispatchEvent(new Event('submit', { 'cancelable': true }));
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = chatInput.value.trim();
+            if (!query || isWaitingForResponse) return;
+
+            addMessage(query, true);
+            chatInput.value = ''; textarea.style.height = 'auto';
+            
+            isWaitingForResponse = true; chatInput.disabled = true; sendBtn.disabled = true;
+            chatLoading.classList.remove('hidden'); chatLoading.classList.add('flex');
+
+            try {
+                const formData = new FormData();
+                formData.append('query', query);
+                formData.append('persona', personaSelect.value); // Persona Support
+
+                const response = await fetch(`${BACKEND_URL}/chat`, { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addMessage(data.answer, false, { sources: data.sources, followUps: data.follow_ups });
+                } else throw new Error();
+            } catch (error) {
+                chatLoading.classList.add('hidden');
+                addMessage("Connection error. Please check if the backend is running.", false, { title: "System Error" });
+            } finally {
+                isWaitingForResponse = false; chatInput.disabled = false; sendBtn.disabled = false; chatInput.focus();
+            }
+        });
+
+        // Extras Functions
+        window.compareDocs = function() {
+            if(chatInput.disabled && !isWaitingForResponse) { showToast("Upload documents first!", "error"); return; }
+            chatInput.value = "Compare the uploaded documents. Create a markdown table showing the main differences and similarities.";
+            sendBtn.disabled = false; chatForm.dispatchEvent(new Event('submit'));
+        }
+
+        window.exportPDF = function() {
+            const element = document.getElementById('chat-messages');
+            const originalBg = element.style.backgroundColor;
+            element.style.backgroundColor = '#f8fafc';
+            showToast("Generating PDF Report...", "info");
+            
+            html2pdf().set({ margin: 0.5, filename: 'DocuMind_Enterprise_Report.pdf', jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => {
+                element.style.backgroundColor = originalBg;
+                showToast("Report Exported Successfully!", "success");
+            });
+        }
+        window.clearChat = function() { chatMessages.innerHTML = ''; addMessage("Workspace cleared. Ready for a new analysis.", false); }
+
+        // Server Health Check
+        async function checkBackendHealth() {
+            const dot = document.getElementById('server-status-dot');
+            const ping = document.getElementById('server-status-ping');
+            const text = document.getElementById('server-status-text');
+            try {
+                const res = await fetch(`${BACKEND_URL}/`);
+                if (res.ok) {
+                    dot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+                    ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                    text.innerText = "System Online"; text.className = "text-xs font-bold text-emerald-400 tracking-wide uppercase";
+                } else throw new Error();
+            } catch (e) {
+                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-rose-500";
+                ping.className = "hidden";
+                text.innerText = "System Offline"; text.className = "text-xs font-bold text-rose-400 tracking-wide uppercase";
+            }
+        }
+        checkBackendHealth(); setInterval(checkBackendHealth, 5000);
+    </script>
+</body>
+</html>
